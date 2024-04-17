@@ -1,1 +1,0 @@
-./configure --disable-svm-light --disable-json --disable-bzip2 --disable-gzip --disable-xml --enable-static --interfaces=cmdline_static

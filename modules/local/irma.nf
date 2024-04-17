@@ -3,11 +3,12 @@ process IRMA {
     label 'process_high'
     stageInMode 'copy'
 
-    container "docker.io/jdj0303/waphl-viral-base:1.0.0"
+    //container "docker.io/jdj0303/waphl-viral-base:1.0.0"
+    container "docker.io/cdcgov/irma:v1.1.4"
 
     input:
     tuple val(meta), path(refs), path(reads)
-    path irma
+    path module_template
 
     output:
     tuple val(meta), path('results/*.fasta'),  emit: consensus
@@ -22,9 +23,16 @@ process IRMA {
     prefix = "${meta.id}"
 
     """
+    # determine IRMA path
+    irma_path=\$(which IRMA)
+    # create module
+    mod=\$(shuf -er -n20  {A..Z} {a..z} {0..9} | tr -d '\n')
+    mv ${module_template} \${irma_path}_RES/modules/\${mod}
     # combine references into single file
-    cat ${refs} > flu-amd/IRMA_RES/modules/ORG/reference/consensus.fasta
+    cat ${refs} > \${irma_path}_RES/modules/\${mod}/reference/consensus.fasta
     # run IRMA
-    flu-amd/IRMA ORG ${reads[0]} ${reads[1]} results
+    IRMA \${mod} ${reads[0]} ${reads[1]} results
+    # clean up
+    rm -r \${irma_path}_RES/modules/\${mod}
     """
 }

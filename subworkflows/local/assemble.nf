@@ -30,7 +30,7 @@ workflow ASSEMBLE {
         // MODULE: Run IRMA
         IRMA (
             ref_list.groupTuple(by:0).map{ meta, ref_ids, ref_paths, reads -> [ meta, ref_paths, reads.get(0) ]},
-            file("${baseDir}/assets/flu-amd/", checkIfExists: true)
+            file("${baseDir}/assets/IRMA_MODULE/", checkIfExists: true)
         )
 
         IRMA
