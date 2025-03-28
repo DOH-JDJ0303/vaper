@@ -160,15 +160,16 @@ workflow PREPARE {
     //
     // MODULE: Run Fastp QC
     //
-    if(params.fastp || ! params.mips)
-    FASTP_QC (
-        ch_reads_short,
-        [],
-        false,
-        false
-    )
-    ch_versions = ch_versions.mix(FASTP_QC.out.versions)
-    FASTP_QC.out.reads.set{ ch_reads_short }
+    if(params.fastp && ! params.mips){
+        FASTP_QC (
+            ch_reads_short,
+            [],
+            false,
+            false
+        )
+        ch_versions = ch_versions.mix(FASTP_QC.out.versions)
+        FASTP_QC.out.reads.set{ ch_reads_short }
+    }
 
     // Combine read channels (placeholder for long reads)
     ch_reads_short.set{ ch_reads }
