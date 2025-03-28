@@ -54,9 +54,6 @@ include { ASSEMBLE } from '../subworkflows/local/assemble'
 //
 // MODULE: Installed directly from nf-core/modules
 //
-include { FASTQC                      } from '../modules/nf-core/fastqc/main'
-include { SEQTK_SAMPLE                } from '../modules/nf-core/seqtk/sample/main'
-include { FASTP                       } from '../modules/nf-core/fastp/main'
 include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
 include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 
@@ -85,68 +82,10 @@ workflow VAPER {
     )
     ch_versions = ch_versions.mix(PREPARE.out.versions)
 
-    PREPARE.out.reads.map{ [ it.meta, it.fastq_12 ] }.set{ ch_reads }
-    PREPARE.out.reads.map{ [ it.meta, it.reference ] }.set{ ch_refs_man }
+    PREPARE.out.reads.set{ ch_reads }
+    PREPARE.out.reads_qc.set{ ch_reads_qc }
+    PREPARE.out.refs_man.set{ ch_refs_man }
     PREPARE.out.refs.set{ ch_refs }
-
-    /* 
-    =============================================================================================================================
-        QUALITY CONTROL: READS
-    =============================================================================================================================
-    */
-
-    //
-    // MODULE: Downsample reads with Seqtk Subseq
-    //
-    if(params.max_reads){
-        // determine samples with too many reads
-        ch_reads
-            .map{ meta, reads -> [ meta: meta, reads: reads, n: reads[0].countFastq()*2 ] }
-            .branch{ it -> 
-                ok: it.n <= params.max_reads
-                high: it.n > params.max_reads  }
-            .set{ ch_reads }
-        // create foward and reverse read channels
-        ch_reads
-            .high
-            .map{it -> [ it.meta, it.reads[0], params.max_reads ] }
-            .set{ch_fwd}
-        ch_reads
-            .high
-            .map{ it -> [ it.meta, it.reads[1], params.max_reads ] }
-            .set{ch_rev}
-
-        SEQTK_SAMPLE(
-            ch_fwd.concat(ch_rev)
-        )
-        ch_versions = ch_versions.mix(SEQTK_SAMPLE.out.versions)
-        // combine forward and reverse read channels
-        SEQTK_SAMPLE
-            .out
-            .reads
-            .groupTuple(by: 0)
-            .concat(ch_reads.ok.map{ [ it.meta, it.reads ] })
-            .set{ ch_reads }
-    }
-
-    //
-    // MODULE: Run FastQC
-    //
-    FASTQC (
-        ch_reads
-    )
-    ch_versions = ch_versions.mix(FASTQC.out.versions)
-
-    //
-    // MODULE: Run Fastp
-    //
-    FASTP (
-        ch_reads,
-        [],
-        false,
-        false
-    )
-    ch_versions = ch_versions.mix(FASTP.out.versions)
 
     /* 
     =============================================================================================================================
@@ -158,7 +97,7 @@ workflow VAPER {
     // SUBWORKFLOW: Classify viruses
     //
     CLASSIFY (
-        FASTP.out.reads,
+        ch_reads,
         ch_refs,
         ch_refs_man
     )
@@ -171,7 +110,7 @@ workflow VAPER {
     */
     // SUBWORKFLOW: Create consensus assemblies
     ASSEMBLE (
-        CLASSIFY.out.ref_list.combine(FASTP.out.reads, by: 0)
+        CLASSIFY.out.ref_list.combine(ch_reads, by: 0)
     )
     ch_versions = ch_versions.mix(ASSEMBLE.out.versions)
 
@@ -196,10 +135,10 @@ workflow VAPER {
         .map{ meta, ref_id -> [ meta, "No_Reference", [], [] ] }
         .set{ ch_no_assembly_list }
 
-    // Combine the reference and non-reference channels & add Fastp & Sourmash results
+    // Combine the reference and non-reference channels & add read QC & Sourmash results
     ch_assembly_list
         .concat(ch_no_assembly_list)
-        .combine(FASTP.out.json, by: 0)
+        .combine(ch_reads_qc.map{ sample, fastqc, fastp_raw, fastp_clean -> [ sample, [ fastp_raw, fastp_clean ] ] }, by: 0)
         .combine(CLASSIFY.out.sm_summary, by: 0)
         .set{ all_list }
 
@@ -243,7 +182,7 @@ workflow VAPER {
     ch_multiqc_files = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
     ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(ch_reads_qc.collect{it[1]}.ifEmpty([]))
 
     MULTIQC (
         ch_multiqc_files.collect(),

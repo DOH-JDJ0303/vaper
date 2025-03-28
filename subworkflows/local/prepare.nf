@@ -2,9 +2,14 @@
 // Check input samplesheet and get read channels
 //
 
-include { FASTERQDUMP } from '../../modules/local/fasterqdump'
-include { REFS2TAR    } from '../../modules/local/refs2tar'
-include { FORMAT_REFS } from '../../modules/local/format_refs'
+include { FASTERQDUMP                                                 } from '../../modules/local/fasterqdump'
+include { REFS2TAR                                                    } from '../../modules/local/refs2tar'
+include { FORMAT_REFS                                                 } from '../../modules/local/format_refs'
+include { CUTADAPT                                                    } from '../../modules/local/cutadapt'
+include { NGMERGE                                                     } from '../../modules/local/ngmerge'
+include { FASTP as FASTP_RAW; FASTP as FASTP_CLEAN; FASTP as FASTP_QC } from '../../modules/nf-core/fastp/main'
+include { FASTQC                                                      } from '../../modules/nf-core/fastqc/main'
+include { SEQTK_SAMPLE                                                } from '../../modules/nf-core/seqtk/sample/main'
 
 workflow PREPARE {
     take:
@@ -35,6 +40,9 @@ workflow PREPARE {
                              its }
         .flatten()
         .set{ ch_reads }
+
+    // Create channel for mannually supplied references
+    ch_reads.map{ [ it.meta, it.reference ] }.set{ ch_refs_man }
 
     // MODULE: Download reads from SRA
     FASTERQDUMP(
@@ -76,9 +84,127 @@ workflow PREPARE {
         ch_refs_tar
     )
 
+    /* 
+    =============================================================================================================================
+        QUALITY CONTROL: Short Reads
+    =============================================================================================================================
+    */
+    ch_reads.filter{ it.fastq_12 }.map{ [ it.meta, it.fastq_12 ] }.set{ ch_reads_short }
+    //
+    // MODULE: Downsample reads with Seqtk Subseq
+    //
+    if(params.max_reads){
+        // determine samples with too many reads
+        ch_reads_short
+            .map{ meta, reads -> [ meta: meta, reads: reads, n: reads[0].countFastq()*2 ] }
+            .branch{ it -> 
+                ok: it.n <= params.max_reads
+                high: it.n > params.max_reads  }
+            .set{ ch_reads_short }
+        // create foward and reverse read channels
+        ch_reads_short
+            .high
+            .map{it -> [ it.meta, it.reads[0], params.max_reads ] }
+            .set{ch_fwd}
+        ch_reads_short
+            .high
+            .map{ it -> [ it.meta, it.reads[1], params.max_reads ] }
+            .set{ch_rev}
+
+        SEQTK_SAMPLE(
+            ch_fwd.concat(ch_rev)
+        )
+        ch_versions = ch_versions.mix(SEQTK_SAMPLE.out.versions)
+        // combine forward and reverse read channels
+        SEQTK_SAMPLE
+            .out
+            .reads
+            .groupTuple(by: 0)
+            .concat(ch_reads_short.ok.map{ [ it.meta, it.reads ] })
+            .set{ ch_reads_short }
+    }
+
+    //
+    // MODULE: Run Fastp for raw read stats
+    //
+    FASTP_RAW (
+        ch_reads_short,
+        [],
+        false,
+        false
+    )
+    ch_versions = ch_versions.mix(FASTP_RAW.out.versions)
+
+    //
+    // MODULE: Run cutadapt
+    //
+    if(params.cutadapt || params.mips){
+        CUTADAPT (
+            ch_reads_short
+        )
+        ch_versions = ch_versions.mix(CUTADAPT.out.versions)
+        CUTADAPT.out.reads.set{ ch_reads_short }
+    }
+
+    //
+    // MODULE: Run NGmerge
+    //
+    if(params.ngmerge || params.mips){
+        NGMERGE (
+            ch_reads_short
+        )
+        ch_versions = ch_versions.mix(NGMERGE.out.versions)
+        NGMERGE.out.reads.set{ ch_reads_short }
+    }
+
+    //
+    // MODULE: Run Fastp QC
+    //
+    if(params.fastp || ! params.mips)
+    FASTP_QC (
+        ch_reads_short,
+        [],
+        false,
+        false
+    )
+    ch_versions = ch_versions.mix(FASTP_QC.out.versions)
+    FASTP_QC.out.reads.set{ ch_reads_short }
+
+    // Combine read channels (placeholder for long reads)
+    ch_reads_short.set{ ch_reads }
+
+    //
+    // MODULE: Run Fastp for clean read stats
+    //
+    FASTP_CLEAN (
+        ch_reads_short,
+        [],
+        false,
+        false
+    )
+    ch_versions = ch_versions.mix(FASTP_CLEAN.out.versions)
+
+    //
+    // MODULE: Run FastQC
+    //
+    FASTQC (
+        ch_reads
+    )
+    ch_versions = ch_versions.mix(FASTQC.out.versions)
+
+    // Create read QC channel
+    FASTQC
+        .out
+        .zip
+        .join(FASTP_RAW.out.json, by: 0)
+        .join(FASTP_CLEAN.out.json, by: 0)
+        .set{ ch_read_qc }
+
     emit:
-    reads    = ch_reads                       // channel: [ val(meta), [ path(fastq_1), path(fastq_2) ], path(fastq_l), val(sra), val/path(references) ]
+    reads    = ch_reads                       // channel: [ val(meta), [ path(fastq_1), path(fastq_2) ], path(fastq_l), val(sra) ]
+    reads_qc = ch_read_qc                     // channel: [ val(meta), path(fastp.json) ]
     refs     = FORMAT_REFS.out.refs           // channel: [ path(refs.fa.gz), path(refs-comp.txt.gz), path(refs.tar.gz), path(refsheet.csv.gz) ]
+    refs_man = ch_refs_man                    // channel: [ val(meta), val/path(references) ]
     versions = ch_versions                    // channel: [ versions.yml ]
 }
 
