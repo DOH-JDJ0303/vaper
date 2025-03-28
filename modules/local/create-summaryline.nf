@@ -3,7 +3,7 @@ process SUMMARYLINE {
     label 'process_low'
 
     input:
-    tuple val(meta), val(ref_id), path(bam_stats), val(nextclade), path(fastp_json), path(sm_summary), path(refsheet)
+    tuple val(meta), val(ref_id), path(bam_stats), val(nextclade), path(fastp_raw, stageAs: 'raw.json'), path(fastp_clean, stageAs: 'clean.json'), path(sm_summary), path(refsheet)
 
     output:
     tuple val(meta), path("*.summaryline.csv"), emit: summaryline
@@ -18,7 +18,7 @@ process SUMMARYLINE {
     """
     # Format reports to tables
     ## Fastp
-    fastp2tbl.sh ${fastp_json} > ${prefix}.fastp2tbl.csv
+    fastp2tbl.sh ${fastp_raw} ${fastp_clean} > ${prefix}.fastp2tbl.csv
     ## Mapping stats
     if [ -f "${bam_stats}" ]
     then

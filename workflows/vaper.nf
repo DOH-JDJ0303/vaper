@@ -138,7 +138,7 @@ workflow VAPER {
     // Combine the reference and non-reference channels & add read QC & Sourmash results
     ch_assembly_list
         .concat(ch_no_assembly_list)
-        .combine(ch_reads_qc.map{ sample, fastqc, fastp_raw, fastp_clean -> [ sample, [ fastp_raw, fastp_clean ] ] }, by: 0)
+        .combine(ch_reads_qc.map{ sample, fastqc, fastp_raw, fastp_clean -> [ sample, fastp_raw, fastp_clean ] }, by: 0)
         .combine(CLASSIFY.out.sm_summary, by: 0)
         .set{ all_list }
 
