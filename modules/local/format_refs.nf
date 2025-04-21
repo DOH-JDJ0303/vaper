@@ -2,9 +2,7 @@ process FORMAT_REFS {
     label 'process_low'
 
     conda "bioconda::seqtk"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/fusioncatcher-seqtk%3A1.2--hed695b0_1' :
-        'staphb/seqtk:1.3' }"
+    container 'docker.io/staphb/seqtk:1.3'
 
     input:
     path refs_tar
