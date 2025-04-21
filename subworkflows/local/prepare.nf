@@ -173,12 +173,13 @@ workflow PREPARE {
 
     // Combine read channels (placeholder for long reads)
     ch_reads_short.set{ ch_reads }
+    ch_reads.view()
 
     //
     // MODULE: Run Fastp for clean read stats
     //
     FASTP_CLEAN (
-        ch_reads_short,
+        ch_reads,
         [],
         false,
         false
