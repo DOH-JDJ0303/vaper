@@ -18,7 +18,7 @@ process TAR2REFS {
     echo -e "${ref_ids.join('\n')}" > select.csv
 
     # Extract references
-    tar -xvzf ${refs_tar}
+    tar -xzf ${refs_tar}
 
     # Move over reference files
     mkdir select

@@ -16,6 +16,6 @@ process REFS2TAR {
     """
     mkdir refset || true
     mv * refset || true
-    tar -cvzf refset.tar.gz refset/
+    tar -czf refset.tar.gz refset/
     """
 }

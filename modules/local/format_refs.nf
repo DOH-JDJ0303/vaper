@@ -18,7 +18,7 @@ process FORMAT_REFS {
     script: // This script is bundled with the pipeline, in nf-core/waphlviral/bin/
     """
     # Extract references
-    tar xvzf ${refs_tar}
+    tar xzf ${refs_tar}
 
     # Copy refsheet
     cp */*.csv refsheet.csv && gzip refsheet.csv

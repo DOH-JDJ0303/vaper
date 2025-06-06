@@ -118,6 +118,12 @@
                     "default": 100,
                     "description": "Minimum length for a contig to be retained in the de novo assembly.",
                     "fa_icon": "fas fa-align-justify"
+                },
+                "ref_denovo_depth": {
+                    "type": "integer",
+                    "default": 50,
+                    "description": "Depth of coverage limit for the de novo assembly.",
+                    "fa_icon": "fas fa-align-justify"
                 }
             },
             "fa_icon": "fas fa-dna"
