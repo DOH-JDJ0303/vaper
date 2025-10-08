@@ -48,15 +48,16 @@ workflow ASSEMBLE {
     */
 
     if (params.cons_assembler == "ivar"){
-        // MODULE: Run MINIMAP2 ALIGN
-        MINIMAP2_ALIGN (
+        // MODULE: Convert reads to BAM using minimap2
+        // Since minimap2_align outputs PAF, we need to generate BAM directly
+        PAF_TO_SAM (
             ch_ref_list
+                .map{ meta, ref_id, ref_path, reads -> 
+                    tuple(meta, ref_id, file("${meta.id}_${ref_id}.paf"), ref_path, reads) 
+                }
         )
-        ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
-        
-        // Use BAM output from MINIMAP2_ALIGN
-        // Note: MINIMAP2_ALIGN must output BAM format (with -a flag) not PAF
-        MINIMAP2_ALIGN.out.bam.set{ ch_bam }
+        ch_versions = ch_versions.mix(PAF_TO_SAM.out.versions)
+        PAF_TO_SAM.out.bam.set{ ch_bam }
 
         // MODULE: Run Ivar
         IVAR_CONSENSUS (
