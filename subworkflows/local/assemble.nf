@@ -3,6 +3,7 @@
 //
 
 include { MINIMAP2_ALIGN } from '../../modules/local/minimap2_align'
+include { PAF_TO_SAM     } from '../../modules/local/paf_to_sam'
 include { IVAR_CONSENSUS } from '../../modules/local/ivar_consensus'
 include { IRMA           } from '../../modules/local/irma'
 include { CONDENSE       } from '../../modules/local/condense'
@@ -42,7 +43,7 @@ workflow ASSEMBLE {
     
     /* 
     =============================================================================================================================
-        ASSEMBLY OPTION 2: IVAR
+        ASSEMBLY OPTION 2: IVAR (with MINIMAP2)
     =============================================================================================================================
     */
 
@@ -52,7 +53,15 @@ workflow ASSEMBLE {
             ch_ref_list
         )
         ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
-        MINIMAP2_ALIGN.out.bam.set{ ch_bam }
+
+        // MODULE: Convert PAF to SAM/BAM (if MINIMAP2 outputs PAF format)
+        // Note: If MINIMAP2_ALIGN is modified to output BAM directly with -a flag,
+        // this conversion step can be removed
+        PAF_TO_SAM (
+            MINIMAP2_ALIGN.out.paf
+        )
+        ch_versions = ch_versions.mix(PAF_TO_SAM.out.versions)
+        PAF_TO_SAM.out.bam.set{ ch_bam }
 
         // MODULE: Run Ivar
         IVAR_CONSENSUS (
