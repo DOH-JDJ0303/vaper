@@ -53,15 +53,10 @@ workflow ASSEMBLE {
             ch_ref_list
         )
         ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
-
-        // MODULE: Convert PAF to SAM/BAM (if MINIMAP2 outputs PAF format)
-        // Note: If MINIMAP2_ALIGN is modified to output BAM directly with -a flag,
-        // this conversion step can be removed
-        PAF_TO_SAM (
-            MINIMAP2_ALIGN.out.paf
-        )
-        ch_versions = ch_versions.mix(PAF_TO_SAM.out.versions)
-        PAF_TO_SAM.out.bam.set{ ch_bam }
+        
+        // Use BAM output from MINIMAP2_ALIGN
+        // Note: MINIMAP2_ALIGN must output BAM format (with -a flag) not PAF
+        MINIMAP2_ALIGN.out.bam.set{ ch_bam }
 
         // MODULE: Run Ivar
         IVAR_CONSENSUS (
