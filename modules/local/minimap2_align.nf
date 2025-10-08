@@ -20,11 +20,7 @@ process MINIMAP2_ALIGN {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-
-// Illumina-optimized preset
-    def preset = task.ext.preset ?: '-x sr'
     """
-
     minimap2 \\
         $preset \\
         $args \\
