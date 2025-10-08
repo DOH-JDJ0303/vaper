@@ -2,7 +2,7 @@
 // Check input samplesheet and get read channels
 //
 
-include { BWA_MEM        } from '../../modules/local/bwa_mem'
+include { MINIMAP2_ALIGN } from '../../modules/local/minimap2_align'
 include { IVAR_CONSENSUS } from '../../modules/local/ivar_consensus'
 include { IRMA           } from '../../modules/local/irma'
 include { CONDENSE       } from '../../modules/local/condense'
@@ -48,11 +48,11 @@ workflow ASSEMBLE {
 
     if (params.cons_assembler == "ivar"){
         // MODULE: Run MINIMAP2 ALIGN
-        BWA_MEM (
+        MINIMAP2_ALIGN (
             ch_ref_list
         )
-        ch_versions = ch_versions.mix(BWA_MEM.out.versions)
-        BWA_MEM.out.bam.set{ ch_bam }
+        ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
+        MINIMAP2_ALIGN.out.bam.set{ ch_bam }
 
         // MODULE: Run Ivar
         IVAR_CONSENSUS (
