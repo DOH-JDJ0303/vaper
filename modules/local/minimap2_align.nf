@@ -22,7 +22,6 @@ process MINIMAP2_ALIGN {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     minimap2 \\
-        -x sr \\
         $args \\
         -t $task.cpus \\
         "${reference}" \\
