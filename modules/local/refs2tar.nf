@@ -4,7 +4,7 @@ process REFS2TAR {
     stageInMode 'copy'
 
     input:
-    path refsheet, assemblies
+    tuple path(refsheet), path(assemblies)
 
     output:
     path "refset.tar.gz",  emit: tar
