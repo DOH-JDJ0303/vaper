@@ -2,7 +2,8 @@
 // Check input samplesheet and get read channels
 //
 
-include { BWA_MEM        } from '../../modules/local/bwa_mem'
+include { MINIMAP2_ALIGN } from '../../modules/local/minimap2_align'
+include { PAF_TO_SAM     } from '../../modules/local/paf_to_sam'
 include { IVAR_CONSENSUS } from '../../modules/local/ivar_consensus'
 include { IRMA           } from '../../modules/local/irma'
 include { CONDENSE       } from '../../modules/local/condense'
@@ -42,17 +43,21 @@ workflow ASSEMBLE {
     
     /* 
     =============================================================================================================================
-        ASSEMBLY OPTION 2: IVAR
+        ASSEMBLY OPTION 2: IVAR (with MINIMAP2)
     =============================================================================================================================
     */
 
     if (params.cons_assembler == "ivar"){
-        // MODULE: Run BWA MEM
-        BWA_MEM (
+        // MODULE: Convert reads to BAM using minimap2
+        // Since minimap2_align outputs PAF, we need to generate BAM directly
+        PAF_TO_SAM (
             ch_ref_list
+                .map{ meta, ref_id, ref_path, reads -> 
+                    tuple(meta, ref_id, file("${meta.id}_${ref_id}.paf"), ref_path, reads) 
+                }
         )
-        ch_versions = ch_versions.mix(BWA_MEM.out.versions)
-        BWA_MEM.out.bam.set{ ch_bam }
+        ch_versions = ch_versions.mix(PAF_TO_SAM.out.versions)
+        PAF_TO_SAM.out.bam.set{ ch_bam }
 
         // MODULE: Run Ivar
         IVAR_CONSENSUS (
