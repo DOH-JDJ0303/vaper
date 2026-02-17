@@ -23,14 +23,20 @@ process IVAR_CONSENSUS {
     # setup for pipe
     set -euxo pipefail
 
+    # index the bam
+    samtools index ${bam}
+
     # create mpilup and call consensus
-    samtools mpileup -aa -A -Q 0 -d 0 ${bam} | \\
-       ivar consensus \\
-       -p ${prefix} \\
-       -m ${params.cons_allele_depth} \\
-       -t ${params.cons_allele_ratio} \\
-       -q ${params.cons_allele_qual} \\
-       ${args}    
+    samtools mpileup \\
+        -aa -A -Q 0 \
+        -d ${params.cons_max_depth} \\
+        -r ${ref_id} ${bam} | \\
+        ivar consensus \\
+        -p ${prefix} \\
+        -m ${params.cons_allele_depth} \\
+        -t ${params.cons_allele_ratio} \\
+        -q ${params.cons_allele_qual} \\
+        ${args}    
     sed -i 's/>.*/>${prefix}/g' ${prefix}.fa
     gzip ${prefix}.fa
 

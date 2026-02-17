@@ -1,64 +1,23 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    PRINT PARAMS SUMMARY
+    IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+include { FASTQC                 } from '../modules/nf-core/fastqc/main'
+include { MULTIQC                } from '../modules/nf-core/multiqc/main'
+include { paramsSummaryMap       } from 'plugin/nf-schema'
+include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_vaper_pipeline'
 
-include { paramsSummaryLog; paramsSummaryMap } from 'plugin/nf-validation'
+include { PREPARE                } from '../subworkflows/local/prepare/main'
+include { CLASSIFY               } from '../subworkflows/local/classify/main'
+include { ASSEMBLE               } from '../subworkflows/local/assemble/main'
 
-def logo = NfcoreTemplate.logo(workflow, params.monochrome_logs)
-def citation = '\n' + WorkflowMain.citation(workflow) + '\n'
-def summary_params = paramsSummaryMap(workflow)
+include { SUMMARYLINE            } from '../modules/local/summaryline'
+include { COMBINE_SUMMARYLINES   } from '../modules/local/combine-summary'
 
-// Print parameter summary log to screen
-log.info logo + paramsSummaryLog(workflow) + citation
 
-WorkflowVaper.initialise(params, log)
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    CONFIG FILES
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-ch_multiqc_config          = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
-ch_multiqc_custom_config   = params.multiqc_config ? Channel.fromPath( params.multiqc_config, checkIfExists: true ) : Channel.empty()
-ch_multiqc_logo            = params.multiqc_logo   ? Channel.fromPath( params.multiqc_logo, checkIfExists: true ) : Channel.empty()
-ch_multiqc_custom_methods_description = params.multiqc_methods_description ? file(params.multiqc_methods_description, checkIfExists: true) : file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT LOCAL MODULES/SUBWORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//
-// MODULE: Local modules
-//
-include { SUMMARYLINE          } from '../modules/local/create-summaryline'
-include { COMBINE_SUMMARYLINES } from '../modules/local/combine-summary'
-
-//
-// SUBWORKFLOW: Consisting of a mix of local and nf-core/modules
-//
-include { PREPARE  } from '../subworkflows/local/prepare'
-include { CLASSIFY } from '../subworkflows/local/classify'
-include { ASSEMBLE } from '../subworkflows/local/assemble'
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT NF-CORE MODULES/SUBWORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//
-// MODULE: Installed directly from nf-core/modules
-//
-include { FASTQC                      } from '../modules/nf-core/fastqc/main'
-include { SEQTK_SAMPLE                } from '../modules/nf-core/seqtk/sample/main'
-include { FASTP                       } from '../modules/nf-core/fastp/main'
-include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
-include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -66,12 +25,14 @@ include { CUSTOM_DUMPSOFTWAREVERSIONS } from '../modules/nf-core/custom/dumpsoft
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// Info required for completion email and summary
-def multiqc_report = []
-
 workflow VAPER {
 
-    ch_versions = Channel.empty()
+    take:
+    ch_samplesheet // channel: samplesheet read in from --input
+    main:
+
+    ch_versions = channel.empty()
+    ch_multiqc_files = channel.empty()
 
     /* 
     =============================================================================================================================
@@ -79,74 +40,19 @@ workflow VAPER {
     =============================================================================================================================
     */
     // SUBWORKFLOW: Read in samplesheet, validate and stage input files
+
+    ref_set = file(params.ref_set)
+
     PREPARE (
-        file(params.input),
-        file(params.refs)
+        ch_samplesheet,
+        (ref_set instanceof List) ? ref_set : [ ref_set ]
     )
     ch_versions = ch_versions.mix(PREPARE.out.versions)
+    ch_multiqc_files = ch_multiqc_files.mix(PREPARE.out.fastqc_zip.collect{it[1]})
 
-    PREPARE.out.reads.map{ [ it.meta, it.fastq_12 ] }.set{ ch_reads }
-    PREPARE.out.reads.map{ [ it.meta, it.reference ] }.set{ ch_refs_man }
-    PREPARE.out.refs.set{ ch_refs }
-
-    /* 
-    =============================================================================================================================
-        QUALITY CONTROL: READS
-    =============================================================================================================================
-    */
-
-    //
-    // MODULE: Downsample reads with Seqtk Subseq
-    //
-    if(params.max_reads){
-        // determine samples with too many reads
-        ch_reads
-            .map{ meta, reads -> [ meta: meta, reads: reads, n: reads[0].countFastq()*2 ] }
-            .branch{ it -> 
-                ok: it.n <= params.max_reads
-                high: it.n > params.max_reads  }
-            .set{ ch_reads }
-        // create foward and reverse read channels
-        ch_reads
-            .high
-            .map{it -> [ it.meta, it.reads[0], params.max_reads ] }
-            .set{ch_fwd}
-        ch_reads
-            .high
-            .map{ it -> [ it.meta, it.reads[1], params.max_reads ] }
-            .set{ch_rev}
-
-        SEQTK_SAMPLE(
-            ch_fwd.concat(ch_rev)
-        )
-        ch_versions = ch_versions.mix(SEQTK_SAMPLE.out.versions)
-        // combine forward and reverse read channels
-        SEQTK_SAMPLE
-            .out
-            .reads
-            .groupTuple(by: 0)
-            .concat(ch_reads.ok.map{ [ it.meta, it.reads ] })
-            .set{ ch_reads }
-    }
-
-    //
-    // MODULE: Run FastQC
-    //
-    FASTQC (
-        ch_reads
-    )
-    ch_versions = ch_versions.mix(FASTQC.out.versions)
-
-    //
-    // MODULE: Run Fastp
-    //
-    FASTP (
-        ch_reads,
-        [],
-        false,
-        false
-    )
-    ch_versions = ch_versions.mix(FASTP.out.versions)
+    ch_reads   = PREPARE.out.reads
+    ch_ref_man = PREPARE.out.ref_man
+    ch_ref_set = PREPARE.out.ref_set
 
     /* 
     =============================================================================================================================
@@ -158,9 +64,9 @@ workflow VAPER {
     // SUBWORKFLOW: Classify viruses
     //
     CLASSIFY (
-        FASTP.out.reads,
-        ch_refs,
-        ch_refs_man
+        ch_reads,
+        ch_ref_set,
+        ch_ref_man
     )
     ch_versions = ch_versions.mix(CLASSIFY.out.versions)
 
@@ -171,7 +77,7 @@ workflow VAPER {
     */
     // SUBWORKFLOW: Create consensus assemblies
     ASSEMBLE (
-        CLASSIFY.out.ref_list.combine(FASTP.out.reads, by: 0)
+        CLASSIFY.out.ref.combine(ch_reads, by: 0)
     )
     ch_versions = ch_versions.mix(ASSEMBLE.out.versions)
 
@@ -181,109 +87,118 @@ workflow VAPER {
     =============================================================================================================================
     */
 
-    // Combine outputs of samples that had references
-    ASSEMBLE
-        .out
-        .bam_stats
-        .join(ASSEMBLE.out.nextclade, by: [0,1])
-        .set{ ch_assembly_list }
-    // Create channel of samples with no reference
-    if(! CLASSIFY.out.ref_list ){ println "No reference, no assembly!" }
     ch_reads
         .map{ meta, reads -> [ meta ] }
-        .join( CLASSIFY.out.ref_list.map{ meta, ref_id, ref -> [ meta, ref_id ] }.ifEmpty( [ null, null ] ), by: 0, remainder: true )
-        .filter{ meta, ref_id -> ref_id == null}
-        .map{ meta, ref_id -> [ meta, "No_Reference", [], [] ] }
-        .set{ ch_no_assembly_list }
-
-    // Combine the reference and non-reference channels & add Fastp & Sourmash results
-    ch_assembly_list
-        .concat(ch_no_assembly_list)
-        .combine(FASTP.out.json, by: 0)
-        .combine(CLASSIFY.out.sm_summary, by: 0)
-        .set{ all_list }
+        .join(PREPARE.out.fastp_json, by: 0, remainder: true)
+        .join(CLASSIFY.out.sm_summary, by: 0, remainder: true)
+        .join(CLASSIFY.out.ref_meta, by: 0, remainder: true)
+        .join(ASSEMBLE.out.bam_stats, by: 0, remainder: true)
+        .join(ASSEMBLE.out.assembly_stats, by: 0, remainder: true)
+        .map{ meta, fastp, sm, refs_meta, bam_stats, asm_stats -> [ 
+            meta,
+            fastp ? fastp : [],
+            sm ? sm : [],
+            refs_meta ? refs_meta : [],
+            bam_stats ? bam_stats : [],
+            asm_stats ? asm_stats : []
+        ]}
+        .set{ ch_all }
 
     // MODULE: Create summaryline for each sample 
     SUMMARYLINE (
-       all_list.combine( CLASSIFY.out.refsheet )
+       ch_all
     )
     ch_versions = ch_versions.mix(SUMMARYLINE.out.versions)
 
     // MODULE: Combine summarylines
     SUMMARYLINE
         .out
-        .summaryline
-        .map{ meta, summaryline -> [ summaryline ] }
+        .json
+        .map{ meta, json -> [ json ] }
         .collect()
         .set{ all_summaries }
     
     COMBINE_SUMMARYLINES (
-        all_summaries
+        all_summaries,
+        Channel.value(groovy.json.JsonOutput.toJson(params)).collectFile(name: 'params.json')
     )
     ch_versions = ch_versions.mix(COMBINE_SUMMARYLINES.out.versions)
 
-    CUSTOM_DUMPSOFTWAREVERSIONS (
-        ch_versions.unique().collectFile(name: 'collated_versions.yml')
-    )
+    //
+    // Collate and save software versions
+    //
+    def topic_versions = Channel.topic("versions")
+        .distinct()
+        .branch { entry ->
+            versions_file: entry instanceof Path
+            versions_tuple: true
+        }
 
-    /* 
-    =============================================================================================================================
-        DEFAULTS
-    =============================================================================================================================
-    */
+    def topic_versions_string = topic_versions.versions_tuple
+        .map { process, tool, version ->
+            [ process[process.lastIndexOf(':')+1..-1], "  ${tool}: ${version}" ]
+        }
+        .groupTuple(by:0)
+        .map { process, tool_versions ->
+            tool_versions.unique().sort()
+            "${process}:\n${tool_versions.join('\n')}"
+        }
 
+    softwareVersionsToYAML(ch_versions.mix(topic_versions.versions_file))
+        .mix(topic_versions_string)
+        .collectFile(
+            storeDir: "${params.outdir}/pipeline_info",
+            name:  'vaper_software_'  + 'mqc_'  + 'versions.yml',
+            sort: true,
+            newLine: true
+        ).set { ch_collated_versions }
+
+
+    //
     // MODULE: MultiQC
-    workflow_summary    = WorkflowVaper.paramsSummaryMultiqc(workflow, summary_params)
-    ch_workflow_summary = Channel.value(workflow_summary)
+    //
+    ch_multiqc_config        = channel.fromPath(
+        "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
+    ch_multiqc_custom_config = params.multiqc_config ?
+        channel.fromPath(params.multiqc_config, checkIfExists: true) :
+        channel.empty()
+    ch_multiqc_logo          = params.multiqc_logo ?
+        channel.fromPath(params.multiqc_logo, checkIfExists: true) :
+        channel.empty()
 
-    methods_description    = WorkflowVaper.methodsDescriptionText(workflow, ch_multiqc_custom_methods_description, params)
-    ch_methods_description = Channel.value(methods_description)
+    summary_params      = paramsSummaryMap(
+        workflow, parameters_schema: "nextflow_schema.json")
+    ch_workflow_summary = channel.value(paramsSummaryMultiqc(summary_params))
+    ch_multiqc_files = ch_multiqc_files.mix(
+        ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
+    ch_multiqc_custom_methods_description = params.multiqc_methods_description ?
+        file(params.multiqc_methods_description, checkIfExists: true) :
+        file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
+    ch_methods_description                = channel.value(
+        methodsDescriptionText(ch_multiqc_custom_methods_description))
 
-    ch_multiqc_files = Channel.empty()
-    ch_multiqc_files = ch_multiqc_files.mix(ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
-    ch_multiqc_files = ch_multiqc_files.mix(ch_methods_description.collectFile(name: 'methods_description_mqc.yaml'))
-    ch_multiqc_files = ch_multiqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]}.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.mix(ch_collated_versions)
+    ch_multiqc_files = ch_multiqc_files.mix(
+        ch_methods_description.collectFile(
+            name: 'methods_description_mqc.yaml',
+            sort: true
+        )
+    )
 
     MULTIQC (
         ch_multiqc_files.collect(),
         ch_multiqc_config.toList(),
         ch_multiqc_custom_config.toList(),
-        ch_multiqc_logo.toList()
+        ch_multiqc_logo.toList(),
+        [],
+        []
     )
-    multiqc_report = MULTIQC.out.report.toList()
+
+    emit:multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
+    versions       = ch_versions                 // channel: [ path(versions.yml) ]
+
 }
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    COMPLETION EMAIL AND SUMMARY
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-workflow.onComplete {
-    if (params.email || params.email_on_fail) {
-        NfcoreTemplate.email(workflow, params, summary_params, projectDir, log, multiqc_report)
-    }
-    NfcoreTemplate.dump_parameters(workflow, params)
-    NfcoreTemplate.summary(workflow, params, log)
-    if (params.hook_url) {
-        NfcoreTemplate.IM_notification(workflow, params, summary_params, projectDir, log)
-    }
-
-    // animalFacts()
-}
-
-// Random fact bot
-def animalFacts(){
-    try {    
-        def facts = file("https://github.com/ekohrt/animal-fun-facts-dataset/raw/refs/heads/main/animal-fun-facts-dataset.csv").splitCsv(header: true)
-        randomFact = facts[new Random().nextInt(facts.size())]
-        factMessage = "[${randomFact.animal_name}] ${randomFact.text.replaceAll('"','')} (source: ${randomFact.source})"
-    } catch (Exception e) {
-        factMessage = "No facts for you!"
-    }
-    println "Animal Fact: ${factMessage}"
-}
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     THE END

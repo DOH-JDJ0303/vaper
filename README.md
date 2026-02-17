@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://github.com/DOH-JDJ0303/vaper-docs/blob/e22bbf8d052c15dbf58e7cd8974252cc4bb02cf8/assets/media/vaper-logo.png" width="600px" >
+<img src="https://github.com/DOH-JDJ0303/vaper-docs/blob/80d67ef527d1a35b8fd822974f0e2710fe52c7c6/assets/media/vaper-logo.png" width="600px" >
 </p>
 
 # VAPER: Viral Assembly from Probe-based EnRichment
@@ -7,18 +7,20 @@
 ## Key Features
 VAPER is a viral (meta-)assembly pipeline that can:
 
+<div style="padding: 1em; margin: 1em 0;">
 🧬 Assemble genomes from complex samples, supporting multiple assemblies per sample (e.g., co-infections)<br>
 🧬 Automatically detect and select reference genomes<br>
 🧬 Predict the taxonomy of each assembly, with an optional viral metagenomic summary<br>
 🧬 Export reads associated with each assembly for downstream use<br>
+</div>
 
-While VAPER was originally designed for hybrid capture data (e.g., [Illumina VSP](https://www.illumina.com/products/by-type/sequencing-kits/library-prep-kits/viral-surveillance-panel.html) or [Twist CVRP](https://www.twistbioscience.com/products/ngs/fixed-panels/comprehensive-viral-research-panel)), it has also been used with shotgun metagenomic and tile-amplicon data. It comes stock with comprehensive reference sets for multiple taxa, including influenza A, SARS-CoV-2, and Monkeypox ([full list](https://doh-jdj0303.github.io/vaper-docs/docs/v2.0/pages/ref_search/)). Keep on reading to learn more!
+While VAPER was originally designed for hybrid capture data, it has also been used with shotgun metagenomic and tile-amplicon data. It comes stock with a comprehensive reference set for **thousands of viral species**, including **all species targeted by the [Illumina VSP v2.0 panel](https://www.illumina.com/content/dam/illumina/gcs/assembled-assets/marketing-literature/viral-surveillance-panel-v2-data-sheet-m-gl-02882/viral-surveillance-panel-v2-data-sheet-m-gl-02882.pdf)** (see the full list [here](https://doh-jdj0303.github.io/vaper-docs/docs/v2.0/pages/ref_search/)).
 
 ## Pipeline Overview
-![VAPER Flowchart](https://github.com/DOH-JDJ0303/vaper-docs/blob/b1478312207e85f963190751ad36a207b4d8cadb/docs/media/VAPER-1.0.drawio.png)
+![VAPER Flowchart](https://github.com/DOH-JDJ0303/vaper-docs/blob/80d67ef527d1a35b8fd822974f0e2710fe52c7c6/docs/v2.0/media/vaper-v2.0.png)
 
 ## More Information:
-See the [docs](https://doh-jdj0303.github.io/vaper-docs/) for more information.
+See the [docs](https://doh-jdj0303.github.io/vaper-docs/docs/v2.0/) for more information.
 
 ## Acknowledgements
 **VAPER would not be possible without the following people:**

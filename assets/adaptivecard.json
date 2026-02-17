@@ -17,7 +17,7 @@
                         "size": "Large",
                         "weight": "Bolder",
                         "color": "<% if (success) { %>Good<% } else { %>Attention<%} %>",
-                        "text": "nf-core/waphlviral v${version} - ${runName}",
+                        "text": "doh-jdj0303/vaper v${version} - ${runName}",
                         "wrap": true
                     },
                     {

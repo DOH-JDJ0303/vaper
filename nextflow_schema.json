@@ -1,10 +1,10 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "https://raw.githubusercontent.com/DOH-JDJ0303/VAPER/master/nextflow_schema.json",
-    "title": "DOH-JDJ0303/VAPER pipeline parameters",
-    "description": "Viral Assembly from Probe-based EnRichment (VAPER)",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/doh-jdj0303/vaper/master/nextflow_schema.json",
+    "title": "doh-jdj0303/vaper pipeline parameters",
+    "description": "VAPER is a viral (meta)-genome assembly pipeline.",
     "type": "object",
-    "definitions": {
+    "$defs": {
         "input_output_options": {
             "title": "Input/output options",
             "type": "object",
@@ -19,17 +19,12 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
+                    "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
-                    "description": "Path to comma-separated file containing information about the samples in the experiment.",
+                    "description": "Path to comma-separated file containing sample information (sample name, FASTQ files, reference genomes, etc.,)",
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
                     "fa_icon": "fas fa-file-csv"
-                },
-                "refs": {
-                    "type": "string",
-                    "default": "${baseDir}/assets/reference_sets/1718026015-epitome_95.tar.gz",
-                    "fa_icon": "fas fa-file-csv",
-                    "description": "Path to reference set."
                 },
                 "outdir": {
                     "type": "string",
@@ -40,8 +35,13 @@
                 "max_reads": {
                     "type": "integer",
                     "default": 2000000,
-                    "description": "Maximum number of reads per sample (R1+R2).",
-                    "fa_icon": "fas fa-glasses"
+                    "description": "The maximum number of reads to include in the analysis.",
+                    "fa_icon": "fas fa-tachometer-alt"
+                },
+                "scrub_reads": {
+                    "type": "boolean",
+                    "description": "Option to use the SRA Human Read Scrubber tool prior to read processing.",
+                    "fa_icon": "fas fa-user-alt-slash"
                 },
                 "email": {
                     "type": "string",
@@ -59,139 +59,197 @@
                 }
             }
         },
-        "classification_options_general": {
-            "title": "Classification options: General",
+        "metagenomic_analysis": {
+            "title": "Metagenomic Analysis",
             "type": "object",
-            "description": "",
+            "description": "Parameters related to the metagenomic analysis using Sourmash",
             "default": "",
             "properties": {
+                "metagenome": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Perform metagenomic analysis.",
+                    "fa_icon": "fas fa-braille"
+                },
                 "sm_db": {
                     "type": "string",
-                    "default": "/home/dev_env/VAPER/general/vaper/assets/databases/genbank-2022.03-viral-k21.zip",
-                    "description": "Path to the sourmash database used for taxonomic classification."
+                    "default": "https://github.com/DOH-JDJ0303/vaper/raw/refs/heads/dev_v2.0/assets/databases/ncbi-viruses-2025.01.dna.k=21.sig.zip",
+                    "description": "Path to Sourmash database to use for metagenomic classification",
+                    "fa_icon": "fas fa-database"
                 },
                 "sm_taxa": {
                     "type": "string",
-                    "default": "/home/dev_env/VAPER/cattle/sourmash/vaper/assets/databases/genbank-2022.03-viral.lineages.csv.gz",
-                    "description": "Path to the file containing lineage information for the sourmash database."
+                    "default": "https://github.com/DOH-JDJ0303/vaper/raw/refs/heads/dev_v2.0/assets/databases/ncbi-viruses.2025.01.lineages.csv.gz",
+                    "description": "Path to taxonomic information for the Sourmash database supplied via `--sm_db`.",
+                    "fa_icon": "fas fa-project-diagram"
                 }
-            },
-            "fa_icon": "fas fa-chart-pie"
+            }
         },
-        "classification_options_reference_selection": {
-            "title": "Classification options: Reference selection",
+        "reference_selection": {
+            "title": "Reference Selection",
             "type": "object",
-            "description": "",
+            "description": "Parameters controlling reference selection.",
             "default": "",
             "properties": {
+                "ref_set": {
+                    "type": "string",
+                    "default": "/home/jdj0303/dev/vaper/v2.0/doh-jdj0303-vaper/assets/reference_sets/2025.12.1_EPITOME_v2.0.jsonl.gz",
+                    "description": "Path to a compressed reference set in JSON lines format or CSV format.",
+                    "fa_icon": "fas fa-database"
+                },
+                "ref_file": {
+                    "type": "string",
+                    "description": "Path(s) to reference files in FASTA format. References supplied this way will be used to create assemblies for **all** samples.",
+                    "fa_icon": "fas fa-copy"
+                },
                 "ref_mode": {
                     "type": "string",
-                    "default": "accurate",
-                    "description": "Reference selection mode ('accurate', 'fast', 'kitchen-sink', or 'none'). Accurate mode selects references from a supplied reference set by competitively aligning contigs from a de novo assembly using Minimap2. Fast mode selects references from a supplied reference set using Sourmash. Kitchen-sink mode selects references from NCBI using the Sourmash metagenomic summary. None mode will skip reference selection (references must be supplied in samplesheet).",
-                    "fa_icon": "fas fa-tachometer-alt"
+                    "default": "standard",
+                    "description": "Reference selection mode ('standard', 'sensitive', 'kitchen-sink', or null",
+                    "fa_icon": "fab fa-buffer"
                 },
                 "ref_genfrac": {
                     "type": "number",
-                    "default": 0.1,
-                    "description": "Minimum genome fraction used for reference selection. Consensus assemblies will only be generated if the proportion of the reference detected in the sample exceeds this value.  This differs from the genome fraction threshold used for the final quality assessment (i.e., --qc_genfrac). In general, this value should be lower than the QC threshold, to account for de novo assembly errors.",
+                    "default": 0.5,
+                    "description": "Minimum genome fraction used for reference selection.",
                     "fa_icon": "fas fa-chart-pie"
                 },
-                "ref_covplot": {
-                    "type": "boolean",
-                    "description": "Create reference coverage plots ('accurate' reference selection mode only)",
-                    "fa_icon": "fas fa-image"
+                "ref_dist": {
+                    "type": "number",
+                    "default": 0.2,
+                    "description": "Average nucleotide difference used to cluster references during reference selection (`1 - ( % ANI / 100 )`).",
+                    "fa_icon": "fas fa-chart-pie"
                 },
                 "ref_denovo_assembler": {
                     "type": "string",
                     "default": "megahit",
-                    "description": "De novo assembler for Shovill ('spades', 'megahit', 'velvet', 'skesa'')\"",
-                    "fa_icon": "fas fa-puzzle-piece"
+                    "description": "De novo assembler to use for accurate reference selection ('spades', 'megahit', 'velvet', 'skesa')",
+                    "fa_icon": "fas fa-toolbox"
                 },
                 "ref_denovo_contigcov": {
                     "type": "integer",
-                    "default": 1,
+                    "default": 10,
                     "description": "Minimum depth of coverage for a contig to be retained in the de novo assembly.",
-                    "fa_icon": "fas fa-align-center"
+                    "fa_icon": "fas fa-chart-pie"
                 },
                 "ref_denovo_contiglen": {
                     "type": "integer",
-                    "default": 100,
+                    "default": 300,
                     "description": "Minimum length for a contig to be retained in the de novo assembly.",
-                    "fa_icon": "fas fa-align-justify"
+                    "fa_icon": "fas fa-chart-pie"
+                },
+                "ref_denovo_gsize": {
+                    "type": "string",
+                    "default": "1.0M",
+                    "description": "Genome size estimate used by Shovill",
+                    "fa_icon": "fas fa-chart-pie"
+                },
+                "ref_denovo_depth": {
+                    "type": "integer",
+                    "default": 30,
+                    "description": "Target assembly depth used by Shovill",
+                    "fa_icon": "fas fa-chart-pie"
+                },
+                "ref_taxon": {
+                    "type": "string",
+                    "description": "A semi-colon separated list of taxon in the reference set that should be considered during reference selection",
+                    "fa_icon": "fas fa-filter"
+                },
+                "ref_species": {
+                    "type": "string",
+                    "description": "A semi-colon separated list of species in the reference set that should be considered during reference selection",
+                    "fa_icon": "fas fa-filter"
+                },
+                "ref_name": {
+                    "type": "string",
+                    "description": "A semi-colon separated list of references in the reference set that should be used for genome assembly",
+                    "fa_icon": "fas fa-filter"
+                },
+                "ref_include": {
+                    "type": "string",
+                    "description": "A semi-colon separated list of inclusion patterns to be applied to the reference set",
+                    "fa_icon": "fas fa-filter"
+                },
+                "ref_exclude": {
+                    "type": "string",
+                    "description": "A semi-colon separated list of exclusion patterns to be applied to the reference set",
+                    "fa_icon": "fas fa-filter"
                 }
-            },
-            "fa_icon": "fas fa-dna"
+            }
         },
-        "assembly_options_consensus_assembly": {
-            "title": "Assembly options: Consensus assembly",
+        "assembly_options": {
+            "title": "Assembly Options",
             "type": "object",
-            "description": "",
+            "description": "Parameters controlling genome assembly",
             "default": "",
             "properties": {
-                "cons_assembler": {
+                "cons_mode": {
                     "type": "string",
-                    "default": "ivar",
-                    "description": "Consensus assembler ('irma' or 'ivar').",
-                    "fa_icon": "fas fa-puzzle-piece"
-                },
-                "cons_assembly_type": {
-                    "type": "string",
-                    "default": "consensus",
-                    "fa_icon": "fas fa-align-justify",
-                    "description": "Method used for creating the reference-based assembly (\"consensus\", \"plurality\", \"padded\")"
-                },
-                "cons_assembly_elong": {
-                    "type": "boolean",
-                    "fa_icon": "fas fa-arrows-alt-h",
-                    "description": "Use IRMA \"elongation\" feature."
-                },
-                "cons_condist": {
-                    "type": "number",
-                    "default": 0.02,
-                    "fa_icon": "fas fa-chart-pie",
-                    "description": "Average nucleotide difference used to condense duplicate assemblies 1-(%ANI/100). Set this to 0 if you want to skip the condense step."
+                    "default": "standard",
+                    "description": "Method used for creating the reference-based assembly ('standard' or 'mixed')",
+                    "fa_icon": "fab fa-buffer"
                 },
                 "cons_allele_qual": {
                     "type": "integer",
                     "default": 20,
-                    "fa_icon": "fas fa-chart-pie",
-                    "description": "Minimum allele quality when making the reference-based assembly."
+                    "description": "Minimum allele quality when making the reference-based assembly.",
+                    "fa_icon": "fas fa-chart-pie"
                 },
                 "cons_allele_ratio": {
                     "type": "number",
                     "default": 0.6,
-                    "fa_icon": "fas fa-chart-pie",
-                    "description": "Minimum allele support when making the reference-based assembly."
+                    "description": "Minimum allele support when making the reference-based assembly.",
+                    "fa_icon": "fas fa-chart-pie"
                 },
                 "cons_allele_depth": {
                     "type": "integer",
                     "default": 10,
-                    "fa_icon": "fas fa-chart-pie",
-                    "description": "Minimum allele depth when making the reference-based assembly."
+                    "description": "Minimum allele depth when making the reference-based assembly.",
+                    "fa_icon": "fas fa-chart-pie"
+                },
+                "cons_max_depth": {
+                    "type": "integer",
+                    "default": 100,
+                    "description": "Maximum read depth per assembly.",
+                    "fa_icon": "fas fa-chart-pie"
+                },
+                "cons_condist": {
+                    "type": "number",
+                    "default": 0.1,
+                    "description": "Average nucleotide difference used to condense duplicate assemblies (`1 - ( % ANI / 100 )`).",
+                    "fa_icon": "fas fa-chart-pie"
+                },
+                "cons_prune_termini": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-cut",
+                    "description": "Remove N characters from the ends of each assembly."
+                },
+                "cons_no_mixed_sites": {
+                    "type": "boolean",
+                    "description": "Replace all non-ATCGN sites with N",
+                    "fa_icon": "fas fa-blender"
                 }
-            },
-            "fa_icon": "fas fa-puzzle-piece"
+            }
         },
-        "assembly_options_quality_control": {
-            "title": "Assembly options: Quality control",
+        "quality_control": {
+            "title": "Quality Control",
             "type": "object",
-            "description": "",
+            "description": "Parameters controlling final assessment of assembly QC",
             "default": "",
             "properties": {
+                "qc_genfrac": {
+                    "type": "number",
+                    "default": 0.8,
+                    "description": "Minimum genome fraction used for quality assessment of reference-based assemblies.",
+                    "fa_icon": "fas fa-chart-pie"
+                },
                 "qc_depth": {
                     "type": "integer",
                     "default": 30,
-                    "description": "Minimum average depth of coverage used for quality the final quality assessment.",
-                    "fa_icon": "fas fa-chart-pie"
-                },
-                "qc_genfrac": {
-                    "type": "number",
-                    "default": 0.9,
-                    "description": "Minimum genome fraction used for the final quality assessment. This differs from the minimum genome fraction used for reference selection (i.e., --ref_genfrac). In general, this value should be higher than the reference selection threshold.",
+                    "description": "Minimum average depth of coverage used for quality assessment of reference-based assemblies.",
                     "fa_icon": "fas fa-chart-pie"
                 }
-            },
-            "fa_icon": "fas fa-chart-pie"
+            }
         },
         "institutional_config_options": {
             "title": "Institutional config options",
@@ -241,41 +299,6 @@
                 }
             }
         },
-        "max_job_request_options": {
-            "title": "Max job request options",
-            "type": "object",
-            "fa_icon": "fab fa-acquisitions-incorporated",
-            "description": "Set the top limit for requested resources for any single job.",
-            "help_text": "If you are running on a smaller system, a pipeline step requesting more resources than are available may cause the Nextflow to stop the run with an error. These options allow you to cap the maximum resources requested by any single job so that the pipeline will run on your system.\n\nNote that you can not _increase_ the resources requested by any job using these options. For that you will need your own configuration file. See [the nf-core website](https://nf-co.re/usage/configuration) for details.",
-            "properties": {
-                "max_cpus": {
-                    "type": "integer",
-                    "description": "Maximum number of CPUs that can be requested for any single job.",
-                    "default": 16,
-                    "fa_icon": "fas fa-microchip",
-                    "hidden": true,
-                    "help_text": "Use to set an upper-limit for the CPU requirement for each process. Should be an integer e.g. `--max_cpus 1`"
-                },
-                "max_memory": {
-                    "type": "string",
-                    "description": "Maximum amount of memory that can be requested for any single job.",
-                    "default": "128.GB",
-                    "fa_icon": "fas fa-memory",
-                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
-                    "hidden": true,
-                    "help_text": "Use to set an upper-limit for the memory requirement for each process. Should be a string in the format integer-unit e.g. `--max_memory '8.GB'`"
-                },
-                "max_time": {
-                    "type": "string",
-                    "description": "Maximum amount of time that can be requested for any single job.",
-                    "default": "240.h",
-                    "fa_icon": "far fa-clock",
-                    "pattern": "^(\\d+\\.?\\s*(s|m|h|d|day)\\s*)+$",
-                    "hidden": true,
-                    "help_text": "Use to set an upper-limit for the time requirement for each process. Should be a string in the format integer-unit e.g. `--max_time '2.h'`"
-                }
-            }
-        },
         "generic_options": {
             "title": "Generic options",
             "type": "object",
@@ -283,12 +306,6 @@
             "description": "Less common options for the pipeline, typically set in a config file.",
             "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
             "properties": {
-                "help": {
-                    "type": "boolean",
-                    "description": "Display help text.",
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
-                },
                 "version": {
                     "type": "boolean",
                     "description": "Display version and exit.",
@@ -362,7 +379,8 @@
                 "multiqc_methods_description": {
                     "type": "string",
                     "description": "Custom MultiQC yaml file containing HTML including a methods description.",
-                    "fa_icon": "fas fa-cog"
+                    "fa_icon": "fas fa-cog",
+                    "hidden": true
                 },
                 "validate_params": {
                     "type": "boolean",
@@ -371,54 +389,61 @@
                     "fa_icon": "fas fa-check-square",
                     "hidden": true
                 },
-                "validationShowHiddenParams": {
-                    "type": "boolean",
-                    "fa_icon": "far fa-eye-slash",
-                    "description": "Show all params when using `--help`",
-                    "hidden": true,
-                    "help_text": "By default, parameters set as _hidden_ in the schema are not shown on the command line when a user runs with `--help`. Specifying this option will tell the pipeline to show all parameters."
-                },
-                "validationFailUnrecognisedParams": {
-                    "type": "boolean",
+                "pipelines_testdata_base_path": {
+                    "type": "string",
                     "fa_icon": "far fa-check-circle",
-                    "description": "Validation of parameters fails when an unrecognised parameter is found.",
-                    "hidden": true,
-                    "help_text": "By default, when an unrecognised parameter is found, it returns a warinig."
+                    "description": "Base URL or local path to location of pipeline test dataset files",
+                    "default": "https://raw.githubusercontent.com/nf-core/test-datasets/",
+                    "hidden": true
                 },
-                "validationLenientMode": {
+                "trace_report_suffix": {
+                    "type": "string",
+                    "fa_icon": "far calendar",
+                    "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
+                    "hidden": true
+                },
+                "help": {
+                    "type": [
+                        "boolean",
+                        "string"
+                    ],
+                    "description": "Display the help message.",
+                    "hidden": true
+                },
+                "help_full": {
                     "type": "boolean",
-                    "fa_icon": "far fa-check-circle",
-                    "description": "Validation of parameters in lenient more.",
-                    "hidden": true,
-                    "help_text": "Allows string values that are parseable as numbers or booleans. For further information see [JSONSchema docs](https://github.com/everit-org/json-schema#lenient-mode)."
+                    "description": "Display the full detailed help message.",
+                    "hidden": true
+                },
+                "show_hidden": {
+                    "type": "boolean",
+                    "description": "Display hidden parameters in the help message (only works when --help or --help_full are provided).",
+                    "hidden": true
                 }
             }
         }
     },
     "allOf": [
         {
-            "$ref": "#/definitions/input_output_options"
+            "$ref": "#/$defs/input_output_options"
         },
         {
-            "$ref": "#/definitions/classification_options_general"
+            "$ref": "#/$defs/metagenomic_analysis"
         },
         {
-            "$ref": "#/definitions/classification_options_reference_selection"
+            "$ref": "#/$defs/reference_selection"
         },
         {
-            "$ref": "#/definitions/assembly_options_consensus_assembly"
+            "$ref": "#/$defs/assembly_options"
         },
         {
-            "$ref": "#/definitions/assembly_options_quality_control"
+            "$ref": "#/$defs/quality_control"
         },
         {
-            "$ref": "#/definitions/institutional_config_options"
+            "$ref": "#/$defs/institutional_config_options"
         },
         {
-            "$ref": "#/definitions/max_job_request_options"
-        },
-        {
-            "$ref": "#/definitions/generic_options"
+            "$ref": "#/$defs/generic_options"
         }
     ]
 }

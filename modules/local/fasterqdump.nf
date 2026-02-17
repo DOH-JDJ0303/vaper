@@ -11,8 +11,8 @@ process FASTERQDUMP {
     tuple val(meta), val(sra)
 
     output:
-    tuple val(meta), path('*_1.fastq.gz'), path('*_2.fastq.gz'), emit: reads
-    path "versions.yml",                                         emit: versions
+    tuple val(meta), path('*.fastq.gz'), emit: reads
+    path "versions.yml",                 emit: versions
 
     when:
     task.ext.when == null || task.ext.when
