@@ -5,6 +5,8 @@ reports:
     display: "Run summary"
   "**/assembly/*.fa*":
     display: "Consensus assembly"
+    "**/assembly_tidy/*.fa*":
+    display: "Tidy Consensus assembly"
   "**/align/*:":
     display: "Read alignments (view in IGV)"
   "**/qc/*":
@@ -15,4 +17,6 @@ reports:
     display: "Processed reads"
   "**/ref-select/*":
     display: "Automated reference selection"
+  "**/summary/*":
+    display: "Sample summary"
 
