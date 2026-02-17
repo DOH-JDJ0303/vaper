@@ -1,50 +1,56 @@
-# base image
-FROM ubuntu:jammy
+# -----------------------------
+# VAPER 2.0
+# -----------------------------
+FROM python:3.11-slim-bullseye
 
-# metadata
-LABEL base.image="ubuntu:jammy"
-LABEL dockerfile.version="2"
-LABEL software="VAPER"
-LABEL software.version="v1.0"
-LABEL description="Basic Linux for running VAPER bash scripts"
-LABEL website="https://github.com/DOH-JDJ0303/vaper"
-LABEL license="Apache 2.0"
-LABEL maintainer="Jared Johnson"
-LABEL maintainer.email="jared.johnson@doh.wa.gov"
+ARG VAPER_VER="2.0"
+ARG SOURMASH_VER="4.9.2"
 
-# prevents having to enter commands during apt-get install
-ENV DEBIAN_FRONTEND=noninteractive
+LABEL org.opencontainers.image.base.name="python:3.11-slim-bullseye" \
+      org.opencontainers.image.title="VAPER" \
+      org.opencontainers.image.version="${VAPER_VER}" \
+      org.opencontainers.image.description="VAPER pipeline dependencies" \
+      org.opencontainers.image.url="https://github.com/DOH-JDJ0303/vaper" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.authors="Jared Johnson <jared.johnson@doh.wa.gov>"
 
-# install dependencies
-RUN apt-get update && apt-get -y --no-install-recommends install \
-    ca-certificates \
-    libssl-dev \
-    zlib1g-dev \
-    libbz2-dev \
-    libreadline-dev \
-    libsqlite3-dev \
-    make \
-    llvm \
-    libncurses5-dev \
-    libncursesw5-dev \
-    xz-utils \
-    tk-dev \
-    libffi-dev \
-    liblzma-dev \
-    build-essential \
-    bc \
-    unzip \
-    tar \
-    gzip \
-    curl \
-    wget \
-    r-base \
-    r-base-dev \
-    jq \
-    bzip2 && \
-    apt-get autoclean && \
-    rm -rf /var/lib/apt/lists/*
-    
-    # required R packages
-    RUN R -e "install.packages(c('tidyverse', 'phangorn','BiocManager'), repos='https://cran.rstudio.com/')"
-    RUN R -e "BiocManager::install('treeio'); BiocManager::install('ggtree')"
+ENV DEBIAN_FRONTEND=noninteractive \
+    LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
+    PIP_NO_CACHE_DIR=1 \
+    PATH="/root/edirect:${PATH}"
+
+# Install all dependencies in one layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      libatlas-base-dev \
+      gfortran \
+      libfreetype6-dev \
+      libpng-dev \
+      git \
+      curl \
+      wget \
+      ca-certificates \
+      procps \
+      mafft \
+      minimap2 \
+      pigz \
+    && python -m pip install --upgrade pip \
+    && python -m pip install \
+      "matplotlib>=3.3" \
+      scikit-learn \
+      sourmash==${SOURMASH_VER} \
+    && curl -fsSL https://ftp.ncbi.nlm.nih.gov/entrez/entrezdirect/install-edirect.sh | bash \
+    && curl -fsSL -o /usr/local/bin/datasets https://ftp.ncbi.nlm.nih.gov/pub/datasets/command-line/v2/linux-amd64/datasets \
+    && curl -fsSL -o /usr/local/bin/dataformat https://ftp.ncbi.nlm.nih.gov/pub/datasets/command-line/v2/linux-amd64/dataformat \
+    && chmod +x /usr/local/bin/datasets /usr/local/bin/dataformat \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /data
+
+# Verify installations
+RUN sourmash --version && \
+    datasets --version && \
+    mafft --version && \
+    minimap2 --version

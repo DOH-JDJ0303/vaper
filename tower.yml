@@ -1,16 +1,18 @@
 reports:
   "**/software_versions.yml":
     display: "Software versions"
-  "VAPER-summary.csv":
-    display: "VAPER Summary"
-  "**/assembly/*.fa":
-    display: "Consensus Assembly"
-  "**/bam/*.bam":
-    display: "Read alignment file"
+  "VAPER-summary.*":
+    display: "Run summary"
+  "**/assembly/*.fa*":
+    display: "Consensus assembly"
+  "**/align/*:":
+    display: "Read alignments (view in IGV)"
   "**/qc/*":
     display: "Quality metrics"
-  "**/taxonomy/*":
-    display: "Taxonomy files"
+  "**/metagenome/*":
+    display: "Metagenomic summary"
   "**/reads/*":
-    display: "Reference-extracted reads"
+    display: "Processed reads"
+  "**/ref-select/*":
+    display: "Automated reference selection"
 

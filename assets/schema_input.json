@@ -1,7 +1,7 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "https://raw.githubusercontent.com/nf-core/waphlviral/master/assets/schema_input.json",
-    "title": "nf-core/waphlviral pipeline - params.input schema",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/doh-jdj0303/vaper/master/assets/schema_input.json",
+    "title": "doh-jdj0303/vaper pipeline - params.input schema",
     "description": "Schema for the file provided with params.input",
     "type": "array",
     "items": {
@@ -10,27 +10,69 @@
             "sample": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Sample name must be provided and cannot contain spaces"
+                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "meta": ["id"]
             },
             "fastq_1": {
                 "type": "string",
-                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q(\\.gz)?$",
+                "errorMessage": "Cannot contain spaces and must end with valid fastq extension (.fq or .fastq)"
             },
             "fastq_2": {
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'",
-                "anyOf": [
-                    {
-                        "type": "string",
-                        "pattern": "^\\S+\\.f(ast)?q\\.gz$"
-                    },
-                    {
-                        "type": "string",
-                        "maxLength": 0
-                    }
-                ]
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q(\\.gz)?$",
+                "errorMessage": "Cannot contain spaces and must end with valid fastq extension (.fq or .fastq)"
+            },
+            "sra": {
+                "type": "string",
+                "default": null,
+                "pattern": "^(SRR|ERR|DRR)\\d{6,}$",
+                "errorMessage": "Sequence Read Archive (SRA) accession"
+            },
+            "ref_file": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "default": null,
+                "pattern": "^([\\S\\s]*/)?[^\\s/]+\\.(fa(sta)?|fna)(\\.gz)?$",
+                "errorMessage": "Cannot contain spaces and must end with valid fastq extension (.fa, .fasta, or .fna)"
+            },
+            "ref_taxon": {
+                "type": "string",
+                "default": null,
+                "errorMessage": "Semicolon separated list of reference taxa to include from the reference set"
+            },
+            "ref_species": {
+                "type": "string",
+                "default": null,
+                "errorMessage": "Semicolon separated list of reference species to include from the reference set"
+            },
+            "ref_segment": {
+                "type": "string",
+                "default": null,
+                "errorMessage": "Semicolon separated list of reference segments to include from the reference set"
+            },
+            "ref_name": {
+                "type": "string",
+                "default": null,
+                "errorMessage": "Semicolon separated list of reference names to include from the reference set"
+            },
+            "ref_include": {
+                "type": "string",
+                "default": null,
+                "errorMessage": "Reference inclusion patterns"
+            },
+            "ref_exclude": {
+                "type": "string",
+                "default": null,
+                "errorMessage": "Reference exclusion patterns"
             }
+
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["sample"]
     }
 }

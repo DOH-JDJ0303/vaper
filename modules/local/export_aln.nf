@@ -5,9 +5,12 @@ process EXPORT_ALN {
 
     input:
     tuple val(meta), val(ref_id), path(ref), path(bam)
-
+    
     output:
-    tuple val(meta), path("*", includeInputs: true)
+    tuple val(meta), path("*.bam*", includeInputs: true)
+    tuple val(meta), path("*.fa*", includeInputs: true)
+    path "versions.yml", emit: versions
+
 
     when:
     task.ext.when == null || task.ext.when
@@ -16,11 +19,11 @@ process EXPORT_ALN {
     def args = task.ext.args ?: ''
     prefix = "${meta.id}-${ref_id}"
     """
-    # make sure reference is not compressed
-    gzip -d * || true
-    # index bam and reference
+    # index bam
     samtools index ${bam}
-    samtools faidx ${ ref.name.replaceAll('.gz$', '') }
+
+    gzip -d "${ref}"
+    samtools faidx *.fa
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
