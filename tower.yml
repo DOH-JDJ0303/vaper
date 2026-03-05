@@ -5,7 +5,7 @@ reports:
     display: "Run summary"
   "**/assembly/*.fa*":
     display: "Consensus assembly"
-    "**/assembly_tidy/*.fa*":
+  "**/assembly_tidy/*.fa*":
     display: "Tidy Consensus assembly"
   "**/align/*:":
     display: "Read alignments (view in IGV)"
