@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://github.com/DOH-JDJ0303/vaper-docs/blob/80d67ef527d1a35b8fd822974f0e2710fe52c7c6/assets/media/vaper-logo.png" width="600px" >
+<img src="https://nw-page.github.io/vaper-docs/docs/v2.0/media/vaper-v2.0.png" width="600px" >
 </p>
 
 # VAPER: Viral Assembly from Probe-based EnRichment
